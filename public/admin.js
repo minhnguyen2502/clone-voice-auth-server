@@ -1,6 +1,14 @@
 let adminToken = null;
 
+// =================================
+// UNIVERSAL API WRAPPER
+// =================================
 function api(path, method = "GET", body = null) {
+  // Prefix ALL requests with /api/
+  if (!path.startsWith("/api/")) {
+    path = "/api" + path;
+  }
+
   return fetch(path, {
     method,
     headers: {
@@ -8,7 +16,15 @@ function api(path, method = "GET", body = null) {
       "Authorization": adminToken
     },
     body: body ? JSON.stringify(body) : null
-  }).then(r => r.json());
+  }).then(async (r) => {
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("❌ JSON PARSE ERROR:", text);
+      throw e;
+    }
+  });
 }
 
 // =================================
@@ -17,7 +33,7 @@ function api(path, method = "GET", body = null) {
 async function login() {
   const password = document.getElementById("password").value;
 
-  const res = await fetch("/admin/login", {
+  const res = await fetch("/api/admin-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password })
@@ -43,7 +59,7 @@ async function login() {
 // DASHBOARD
 // =================================
 async function loadDashboard() {
-  const data = await api("/admin/dashboard");
+  const data = await api("/admin-dashboard");
   const box = document.getElementById("dashboardBox");
 
   box.innerHTML = `
@@ -85,8 +101,11 @@ async function createKey() {
   const expiration = document.getElementById("createExpiry").value;
   const notes = document.getElementById("createNotes").value;
 
-  const res = await api("/admin/create-key", "POST",
-    { credits, expiration, notes });
+  const res = await api("/admin-create-key", "POST", {
+    credits,
+    expiration,
+    notes
+  });
 
   document.getElementById("createResult").innerHTML =
     `<span style="color:#3cb675;">Created Key: <b>${res.apiKey}</b></span>`;
@@ -98,7 +117,7 @@ async function createKey() {
 // MANAGE KEYS
 // =================================
 async function loadKeys() {
-  const data = await api("/admin/keys");
+  const data = await api("/admin-keys");
   const box = document.getElementById("keysTable");
 
   let html = `
@@ -121,12 +140,14 @@ async function loadKeys() {
         <td>${k.apiKey}</td>
 
         <td>
-          <input id="c_${k.apiKey}" class="form-control form-control-sm" style="width:120px" value="${k.credits}">
+          <input id="c_${k.apiKey}" class="form-control form-control-sm" 
+                 style="width:120px" value="${k.credits}">
         </td>
 
         <td>
-          <input id="e_${k.apiKey}" class="form-control form-control-sm" type="datetime-local"
-                 value="${new Date(k.expiration).toISOString().substring(0,16)}">
+          <input id="e_${k.apiKey}" class="form-control form-control-sm" 
+                 type="datetime-local"
+                 value="${new Date(k.expiration).toISOString().substring(0, 16)}">
         </td>
 
         <td>
@@ -149,24 +170,24 @@ async function loadKeys() {
 
 async function saveCredit(apiKey) {
   const amount = document.getElementById("c_" + apiKey).value;
-  await api("/admin/update-credit", "POST", { apiKey, amount });
+  await api("/admin-update-credit", "POST", { apiKey, amount });
   loadKeys();
 }
 
 async function saveExp(apiKey) {
   const expiration = document.getElementById("e_" + apiKey).value;
-  await api("/admin/update-expiration", "POST", { apiKey, expiration });
+  await api("/admin-update-expiration", "POST", { apiKey, expiration });
   loadKeys();
 }
 
 async function toggleStatus(apiKey) {
-  await api("/admin/toggle-status", "POST", { apiKey });
+  await api("/admin-toggle-status", "POST", { apiKey });
   loadKeys();
 }
 
 async function delKey(apiKey) {
   if (!confirm("Are you sure?")) return;
-  await api("/admin/delete", "POST", { apiKey });
+  await api("/admin-delete", "POST", { apiKey });
   loadKeys();
 }
 
@@ -174,7 +195,7 @@ async function delKey(apiKey) {
 // LOGS
 // =================================
 async function loadLogs() {
-  const logs = await api("/admin/logs");
+  const logs = await api("/admin-logs");
   const box = document.getElementById("logsTable");
 
   let html = `
@@ -209,7 +230,7 @@ async function loadLogs() {
 async function changePassword() {
   const newPassword = document.getElementById("newAdminPass").value;
 
-  const res = await api("/admin/change-password", "POST", { newPassword });
+  const res = await api("/admin-change-password", "POST", { newPassword });
 
   if (res.success) {
     document.getElementById("changePassResult").innerHTML =
